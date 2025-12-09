@@ -8,38 +8,30 @@ import { MongoClient } from "mongodb";
 const app = express();
 app.use(cors());
 app.use(express.json());
-// =============================================
 
 const uri = process.env.DB_URI;
-let client;
-let db;
 
-async function getDB() {
-    if (!client) {
-        client = new MongoClient(uri, {
-            serverSelectionTimeoutMS: 5000,
-        });
-        await client.connect();
-        db = client.db("contest_craze_db");
-        console.log("MongoDB Connected");
-    }
-    return db;
-}
+let client = new MongoClient(uri, { serverSelectionTimeoutMS: 5000 });
 
-// ==================================================
+// Connect and assign DB & collections **once at startup**
+await client.connect();
+const db = client.db("contest_craze_db");
+const usersCollection = db.collection("users_collections");
+const anotherCollection = db.collection("another_collection");
+
+console.log("MongoDB connected ...");
+
+// =================================================
+// ROUTES
+// =================================================
+
 app.get("/", (req, res) => {
     res.send("Backend is running");
 });
 
-// GET /users
 app.get("/users", async (req, res) => {
     try {
-        const database = await getDB();
-        const users = await database
-            .collection("users_collections")
-            .find()
-            .toArray();
-
+        const users = await usersCollection.find().toArray();
         res.status(200).json(users);
     } catch (err) {
         console.error("Error loading users:", err);
@@ -47,13 +39,25 @@ app.get("/users", async (req, res) => {
     }
 });
 
+app.post("/exam", async (req, res) => {
+    try {
+        const newUser = req.body;
+        console.log(newUser);
+        const result = await anotherCollection.insertOne(newUser);
+        res.status(201).json(result);
+    } catch (err) {
+        console.error("Insert error:", err);
+        res.status(500).json({ error: "Failed to insert user" });
+    }
+});
+
 // =======================================================
-if (!process.env.VERCEL) {
-    const PORT = 3000;
-    app.listen(PORT, () => {
-        console.log("Local server running at http://localhost:3000/");
-    });
-}
+// LOCAL DEVELOPMENT
+// =======================================================
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log("Local server running at http://localhost:3000/");
+});
 
 
 export default app;
